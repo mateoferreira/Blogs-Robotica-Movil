@@ -41,5 +41,7 @@ Por último, cuento con un sistema de defensa si pierdo la linea. Primeramente e
 
 Por último, aquí podemos ver una demostración de mi programa:
 
+
 ## Circuito simple
 
+[Grabación de pantalla desde 2025-10-17 16-22-21.webm](https://github.com/user-attachments/assets/9881f9b7-9607-4f93-a552-62100f9948d8)
