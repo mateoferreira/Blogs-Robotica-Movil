@@ -33,4 +33,5 @@ En resumen, ha sido una práctica de mucha prueba y error, y con bastantes compl
 
 ## VIDEO DEL FUNCIONAMIENTO
 Como va un poco lento, recomiendo ponerlo en x2:
+
 [Grabación de pantalla desde 2025-11-02 19-06-15.webm](https://github.com/user-attachments/assets/d61d2d73-38a5-45d4-a8f6-e183695ba627)
