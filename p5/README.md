@@ -39,7 +39,8 @@ Con Odom:
 
 El mapa es bastante mejor, pero las estanterías que son obstaculos más finos, son casi imperceptibles en mi mapa, por que no está tan bien ubicado. Un buen ejemplo de como se debe de ver es localizandose mediante GPS:
 
-<img width="559" height="342" alt="Captura desde 2025-12-03 18-32-35" src="https://github.com/user-attachments/assets/37765d6e-eb21-4991-a81e-e8c80d0bff84" />
+<img width="1106" height="336" alt="Captura desde 2025-12-03 18-25-13" src="https://github.com/user-attachments/assets/ba7da537-4e88-4ebe-b143-4647d0b1386a" />
+
 
 Donde se ve claramente la delimitación de los obstáculos.
 
