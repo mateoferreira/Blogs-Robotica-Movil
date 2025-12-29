@@ -1,39 +1,61 @@
 # P6 - AUTOLOCALIZACIÓN CON APRILTAGS
-Esta práctica ha sido sin duda alguna la más difícil, ya que conceptualmente es fácil pero he tenido que buscar por mi cuenta como hacer el PnP, multiplicación de matrices... Además, el laser y el bumper del robot no estaban habilitados (o por lo menos tal y como lo hemos implementado en prácticas anteriores), ya que las funciones no se reconocían.
-Por eso, tras mucho esfuerzo, mi autolocalización es errónea, aunque he maximizado la similaritud, no se acerca ni mucho menos al video explicativo, pero aun así, voy a comentar mi práctica, ya que conceptualmente se acerca al objetivo.
+
+Esta práctica ha sido sin duda alguna la más difícil, ya que conceptualmente es fácil pero he tenido que buscar por mi cuenta cómo hacer el PnP y la multiplicación de matrices. Además, el laser y el bumper del robot no estaban habilitados, así que he tenido que usar odometría para ciertas partes.
 
 ### 1º parte: navegación
-Como ya he dicho, no he podido navegar con laser ni bumper, por lo que he modificado el algoritmo de navegación aleatoria de la p1, es decir, implementando una máquina de 2 estados. Primeramente me calculo un tiempo aleatorio entre 1 y 5 segundos, y empiezo avanzando recto. En cada iteración compruebo si ya han pasado ese tiempo aleatorio, y cuando sea así, calculo otro tiempo random pero esta vez para girar y así sucesivamente.
-Esto ha causado varios problemas, como por ejemplo el giro. Si la dirección del giro también es aleatoria, he comprobado que casi siempre va a seguir una "linea recta", cosa que pretendo evitar. Por eso, los giros que hago siempre son hacia la izquierda. Esta solución es muy pobre, pero es la más efectiva que he probado
+
+He modificado el algoritmo de navegación aleatoria de la P1 implementando una máquina de 2 estados. Primeramente me calculo un tiempo aleatorio entre 1 y 5 segundos y empiezo avanzando recto. En cada iteración compruebo si ya han pasado ese tiempo y, cuando sea así, calculo otro tiempo random pero esta vez para girar y así sucesivamente.
+
+Para simplificar, los giros siempre son hacia la izquierda. No es la solución más elegante, pero funciona de manera consistente y evita que el robot quede atrapado en rectas.
 
 ### 2º parte: localización de balizas
-Para esta parte, me he ayudado casi exclusivamente del código de ayuda proporcionado por el profesor. Lo único que he añadido, es detectar el area para todos los apriltags que detecto. Así, tal y como dice el enunciado, si detecto 2, me quedo con el más cercano (el que mayor area tenga). Una vez hallada la baliza mas cercana, saco la posición del tag respecto al mundo gracias al id del tag y la lista de tags proporcionada por la ayuda al usaurio
 
-### 3º parte: PnP
-El objetivo principal es calcular la posicion en el mundo del robot, sabiendo la posición de los tags en el mundo. Para ello, tengo que primero calcular la posicón de los tags respecto de la cámara, y luego con una multiplicación de matrices lo saco facilmente.
+En todas las iteraciones detecto todos los AprilTags en la imagen y me quedo con el de mayor área, que suele ser el más cercano. Una vez hallado este tag, obtengo su posición en el mundo gracias al ID del tag y la lista de posiciones de los tags proporcionada en el archivo YAML. 
 
-El código de ayuda nos da la matriz de la cámara y los coeficientes de distorsión de la lente. Yo he tenido que definir los puntos en 3d (esquinas del tag) del tag calculado previamente (el mas cercano) siempre que haya tag, y la proyeccion 2d de estos puntos 3d en la imagen.
+Siempre que haya al menos un tag en la imagen, guardo la posición en ese momento del robot, y eso me servirá para la autolocalizacion sin balizas, que explicaré mas adelante.
 
-Con la función de openCV: *solvePnP*, que recibe estos 4 argumentos, obtenemos un vector de rotacion (rvec), que representa la orientación del tag vista desde la camara, y un vector de traslación 3d (tvec), que representa la posición del origen del tag vista desde la camara.
+### 3º parte: PnP y matrices homogéneas
 
-Para pasar del vector rvec a una matriz de rotación, he usado la función de openCV: *Rodrigues*. 
-Como queremos hallar la posición de la cámara respecto del tag, la matriz de rotación que me interesa es la traspuesta de la que hallada con *Rodrigues*, y el vector de traslación es: *t_tc = -R_tc.T @ tvec*, es decir, la posición del tag en la camara (traslación) es: - matriz de rotación traspuesta del tag en la cámara * vector hallado con el *solvePnP*. Esto ha sido conceptualmente muy difícil de entender, y sin documentación externa habría sido imposible hallarlo por mi cuenta.
+Para calcular la posición de la cámara respecto al mundo, primero calculo la posición del tag respecto a la cámara usando solvePnP de OpenCV. Esto me da:
 
-Una vez hallada la posicion del la camara respecto al tag, para hallar la camara respecto al mundo, he empleado lo siguiente en el codigo: *cam_world = R_wt @ t_tc + tag_pos_world*, donde R_wt es una matriz de rotación que creo yo mismo cuando elijo al tag de mayor área, ya que la posición del tag, tiene 4 campos, y el último de ellos es el yaw, por lo que la matriz de rotación la puedo sacar como: (cos(yaw), -sin(yaw), 0; sin(yaw), cos(yaw), 0; 0, 0, 1).
+- rvec: vector de rotación del tag respecto a la cámara.
 
-Así puedo hallar la posición de la camara respecto al mundo, al menos teóricamente, y también hallo el yaw de la cámara respecto al mundo, para poder suponer no solo la posición, sino también la orientación.
+- tvec: vector de traslación del tag respecto a la cámara.
+
+A partir de rvec genero la matriz de rotación con *Rodrigues* y construyo una matriz homogénea 4x4, que combina rotación y traslación.
+
+Para hallar la posición de la cámara respecto al tag, invierto esta matriz. Además, aplico una corrección de ejes porque OpenCV usa un sistema de coordenadas diferente al del robot. Esta corrección también es una matriz homogénea 4x4, que transforma las coordenadas de la cámara de OpenCV al sistema de coordenadas del robot.
+
+Finalmente, multiplico la matriz de la posición del tag en el mundo T_world_tag por la matriz de la cámara respecto al tag y la matriz de corrección de ejes. Esto me da T_world_cam, la posición y orientación de la cámara en el mundo. El yaw de la cámara se obtiene con *atan2(T_world_cam[1,0], T_world_cam[0,0])* y le sumo 90° para alinear correctamente la orientación, ya que me dí cuenta de que esta corrección era necesaria para no solo autolocalizarse bien en cuanto a posición, sino también en cuanto a orientación.
+
+Esta parte ha sido sin duda alguna la más dificil. Inicialmente, mis matrices eran 3x3, pero opté por hacerlas homogéneas, tal y como vimos en clase.
+Lo que más me costó pillar fue la diferencia de ejes del robot y del simulador, ya que eran distintos, y eso hacía que mi robot se autolocalizase mal, aunque el PnP estuviese teóricamente correcto, por lo que depurando mis matrices de posición finales en distintos escenarios (robot alejandose y acercandose a la baliza, girando sobre su pripio eje con una baliza delante...) logré hallar la correción de ejes correcta
 
 ### 4º parte: autolocalización sin baliza
-Esta parte es la que "mejor me ha salido", ya que no arrastro los posibles errores que haya podido cometer en el PnP. En mi código, compruebo si detecto o no al menos una baliza. Cuando detecte una baliza me guardo la posición en ese momento, así en las iteraciones que no detecte ninguna, puedo hallar las diferencias de x e y actuales (sacadas con la odometría) y las x e y en la última posición donde detecté una baliza. 
 
-Entonces, en cada iteración, la posición de la cámara respecto al mundo será la posición de la cámara respecto al mundo la última vez que se ha detectado una baliza + las diferencias de x e y halladas en el paso anterior.
+Cuando no se detecta ninguna baliza, uso la odometría para estimar la posición de la cámara. La posición actual se calcula como la última posición conocida con baliza más la diferencia de x, y y yaw obtenida desde odometría.
 
-Otro punto importante, es que el yaw no lo he calculado con odometría, ya que el resultado era peor, sino a partir del PnP. Es decir, cuando detecto una baliza, puedo hallar la matriz de rotación de la cámara respecto del mundo. El yaw de esa rotación es el que me interesa, por lo que a partir de esa matriz puedo calcular: *θ = atan2(sinθ, cosθ)*. Este yaw también voy a usarlo para la orientación sin balizas visibles, tal y como he hecho con la x y la y.
+De esta manera, la autolocalización sigue funcionando aunque el robot no vea tags, y cuando detecta uno nuevamente, la posición se corrige automáticamente.
 
+### 5º parte: resumen de matrices
 
-Hasta aquí, teoricmente, mi práctica debería funcionar, pero la realidad es que solo hace una estimación. La posición del robot cuando detecta una baliza es muy cercana a la propia baliza, aunque mi robot esté muy lejos. Lo único que hace "bien" es la autolocalización cuando no detecta balizas, aquí la demostración:
+En todo el código utilizo matrices homogéneas 4x4 para representar transformaciones (rotación + traslación).
 
-[Grabación de pantalla desde 2025-12-27 12-12-47.webm](https://github.com/user-attachments/assets/e9f9a220-52af-4f9a-acc1-a1ac23696dde)
+- T_world_tag: posición y orientación del tag en el mundo.
 
+- T_ct / T_tag_cam: posición del tag respecto a la cámara (tras inversión).
 
+axes_correction: corrige la diferencia de ejes entre OpenCV y el sistema del robot.
+
+T_world_cam: posición final de la cámara respecto al mundo.
+
+Con esta combinación de matrices y la selección del tag más cercano, la autolocalización funciona correctamente.
+
+## VIDEO
+En mi demostración, la autolocalización es bastante correcta, aunque siempre hay un pequeño error, posiblemente por el error acomulado, o que interprete que el centro del robot es la cámara, por lo que estimo la posición de la camara en el mundo, y no la del robot en el mundo. 
+Otro problema es que a grandes distancias, el error aumenta, y además, al calcularse la posición en cada iteración y no haber ningún tipo de suavizado, se puede observar ese ruido de la posición, no es una estimación suave.
+
+En el video, se ve como el robot, cuando deja de detectar una baliza, se autolocaliza gracias al incremento de la odometría correctamente, y ahí el ruido es menor. Pero cuando detecta una baliza, como está haciendo cálculos constantemente, hay más ruido. Aun así las posiciones estimadas son bastante correctas en ambos casos
+
+[Grabación de pantalla desde 2025-12-29 18-24-16.webm](https://github.com/user-attachments/assets/b1165662-fd84-414a-a739-e0fdb433d1a9)
 
